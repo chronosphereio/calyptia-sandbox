@@ -1,7 +1,4 @@
-const URL =
-  localStorage.getItem('cloud-runner-url') ||
-  process.env.REACT_APP_CLOUD_RUNNER_URL ||
-  'http://localhost:5555/jsonrpc'
+const URL = 'https://cloud-lua-sandbox-playground-rztqu7nlcq-uc.a.run.app/jsonrpc';
 
 export async function runFilter(events: any[], code: string) {
   const response = await fetch(URL, {

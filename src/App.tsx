@@ -10,9 +10,7 @@ import { runFilter as runFilterFengari } from './fengari_runner'
 import { runFilter as runFilterCloud } from './cloud_runner'
 import { exportConfig } from './export_config'
 
-const runFilter = process.env.REACT_APP_CLOUD_RUNNER_URL || localStorage.getItem('cloud-runner-url') ?
-  runFilterCloud :
-  runFilterFengari
+const runFilter = runFilterCloud
 
 const storageKey = "flb-input-filter"
 
@@ -32,21 +30,14 @@ const initialInput = `{"log": "line 1"}
 {"log": "line 14"}
 {"log": "line 15"}`
 
-const initialFilter = `function cb_filter(tag, ts, record)
-  local number_start, number_end = record.log:find('%d+')
-  local number_string = record.log:sub(number_start, number_end)
-  local num = tonumber(number_string)
-
-  if num % 15 == 0 then
-    record.log = 'FizzBuzz'
-  elseif num % 5 == 0 then
-    record.log = 'Buzz'
-  elseif num % 3 == 0 then
-    record.log = 'Fizz'
-  end        
-  
-  return 1, ts, record
-end`
+const initialFilter= `cb_filter = require('calyptia.compose')(
+--  { 'extract_kv', { src = 'id', dst = 'extracted', regex = [[(\S+)=(\S+)]] } }
+--, { 'delete' , {key = 'id'} }
+--, { 'flatten', { key = 'extracted' }}
+--, { 'allow_records' , {key = 'email', regex='Accept'} }
+--, { 'block_keys' , {regex = 'phone'} }
+--, { 'block_keys' , {regex = 'null'} }
+)`
 
 let fetching = false
 
@@ -153,6 +144,17 @@ async function run(input: string, filter: string, setOut: Function) {
 
 const debouncedRun = _.debounce(run, 1000);
 
+function computeSize(data: string) {
+  return data.length;
+}
+
+function computeSaving(input: string, output: string) {
+  const inLen = input.length;
+  const outLen = output.length;
+  const ratio = outLen/inLen;
+  return `${(ratio * 100).toFixed(2)}% of the original size`;
+}
+
 function App() {
   const [input, setInput] = useState('')
   const [filter, setFilter] = useState('')
@@ -213,7 +215,7 @@ function App() {
       <div id="code-editors">
         <div id="input-events" className="code-editor">
           <div className="code-editor-title upload-file">
-            <label htmlFor="events-input"><h2>Input events</h2></label>
+            <label htmlFor="events-input"><h2>{`Input (size: ${computeSize(input)} bytes)`}</h2></label>
             <input id="events-input" type="file" onChange={(e) => {
 
               if (!e.target.files || !e.target.files[0]) {
@@ -281,7 +283,7 @@ function App() {
 
         <div id="output-events" className="code-editor">
           <div className="code-editor-title">
-            <h2>Output events</h2>
+            <h2>{`Output (size: ${computeSize(out)}) bytes (${computeSaving(input, out)})`}</h2>
           </div>
           <CodeMirror
             className="code-editor-cm"
@@ -296,4 +298,5 @@ function App() {
 );
 }
 
+//, { 'custom_script' , { script='return function(tag, ts, record, code) record.columns = #record.decoded_csv; return code, ts, record end'} }
 export default App;
